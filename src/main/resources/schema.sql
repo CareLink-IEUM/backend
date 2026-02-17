@@ -201,6 +201,20 @@ CREATE TABLE bank_account (
 
     FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
 );
+
+-- 환전
+CREATE TABLE currency_exchange (
+    exchange_id     BIGSERIAL PRIMARY KEY,
+    member_id       BIGINT NOT NULL,
+    from_currency   VARCHAR(10),
+    to_currency     VARCHAR(10),
+    amount          NUMERIC(14,2),
+    exchange_rate   NUMERIC(12,6),
+    processed_at    TIMESTAMP,
+
+    FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
+);
+
 -- 보험 해지, 이전
 CREATE TABLE insurance_transfer (
     transfer_id     BIGSERIAL PRIMARY KEY,
