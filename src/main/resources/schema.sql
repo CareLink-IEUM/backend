@@ -27,16 +27,18 @@ INSERT INTO member (email, password, name, nationality, visa_type, birth_date, g
 VALUES ('nguyen@test.com', 'encrypted_pwd', 'Nguyen Van A', 'Vietnam', 'E-7', '1990-05-20', 'MALE');
 
 -- 가족 구성원
--- CREATE TABLE family_member (
---     family_id       BIGSERIAL       PRIMARY KEY,
---     member_id       BIGINT          NOT NULL,
---     name            VARCHAR(50)     NOT NULL,
---     relation        VARCHAR(20)     NOT NULL, -- SPOUSE, CHILD, PARENT
---     birth_date      DATE,
---     created_at      TIMESTAMP       DEFAULT CURRENT_TIMESTAMP,
-    
---     FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
--- );
+CREATE TABLE family_member (
+    family_id       BIGSERIAL PRIMARY KEY,
+    member_id       BIGINT NOT NULL,
+    name            VARCHAR(50) NOT NULL,
+    relation        VARCHAR(20) NOT NULL, -- SPOUSE, CHILD, PARENT
+    birth_date      DATE,
+    nationality     VARCHAR(50),
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
+);
+
 
 
 -------------------------------------------------------
@@ -71,6 +73,19 @@ CREATE TABLE insurance_coverage (
     FOREIGN KEY (product_id) REFERENCES insurance_product(product_id) ON DELETE CASCADE
 );
 
+-- 4대 보험
+CREATE TABLE social_insurance (
+    social_id       BIGSERIAL PRIMARY KEY,
+    member_id       BIGINT NOT NULL,
+    type            VARCHAR(30), -- 국민연금, 건강보험 등
+    provider        VARCHAR(100),
+    coverage_status VARCHAR(50),
+    last_checked_at TIMESTAMP,
+
+    FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
+);
+
+
 -------------------------------------------------------
 -- 3. Contract Domain
 -------------------------------------------------------
@@ -100,6 +115,101 @@ CREATE TABLE insurance_contract_detail (
     
     FOREIGN KEY (contract_id) REFERENCES insurance_contract(contract_id) ON DELETE CASCADE,
     FOREIGN KEY (coverage_id) REFERENCES insurance_coverage(coverage_id)
+);
+
+
+-------------------------------------------------------
+-- 4. Hospital Domain
+-------------------------------------------------------
+-- 응급신고 기록
+CREATE TABLE emergency_event (
+    emergency_id    BIGSERIAL PRIMARY KEY,
+    member_id       BIGINT NOT NULL,
+    description     TEXT,
+    severity_level  VARCHAR(20), -- LOW, MEDIUM, HIGH
+    consent_given   BOOLEAN DEFAULT FALSE,
+    reported_119    BOOLEAN DEFAULT FALSE,
+    location_lat    NUMERIC(10,7),
+    location_lng    NUMERIC(10,7),
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
+);
+-- 병원방문 기록
+CREATE TABLE hospital_visit (
+    visit_id        BIGSERIAL PRIMARY KEY,
+    member_id       BIGINT NOT NULL,
+    hospital_name   VARCHAR(255),
+    department      VARCHAR(100), -- 내과, 외과 등
+    visit_date      DATE,
+    symptoms        TEXT,
+    diagnosis       TEXT,
+    visit_type VARCHAR(20) DEFAULT 'NORMAL',
+    emergency_id    BIGINT,
+
+    FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE,
+    FOREIGN KEY (emergency_id) REFERENCES emergency_event(emergency_id)
+);
+
+-- 진단서, 영수증
+CREATE TABLE medical_document (
+    document_id     BIGSERIAL PRIMARY KEY,
+    visit_id        BIGINT NOT NULL,
+    document_type   VARCHAR(50), -- RECEIPT, DIAGNOSIS
+    file_url        TEXT,
+    ocr_text        TEXT,
+    verified        BOOLEAN DEFAULT FALSE,
+    uploaded_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (visit_id) REFERENCES hospital_visit(visit_id) ON DELETE CASCADE
+);
+
+-- 보험금 청구
+CREATE TABLE insurance_claim (
+    claim_id        BIGSERIAL PRIMARY KEY,
+    contract_id     BIGINT NOT NULL,
+    visit_id        BIGINT NOT NULL,
+    claim_amount    BIGINT,
+    status          VARCHAR(20) DEFAULT 'PENDING', -- PENDING, APPROVED, REJECTED
+    auto_submitted  BOOLEAN DEFAULT FALSE,
+    submitted_at    TIMESTAMP,
+    processed_at    TIMESTAMP,
+
+    FOREIGN KEY (contract_id) REFERENCES insurance_contract(contract_id),
+    FOREIGN KEY (visit_id) REFERENCES hospital_visit(visit_id)
+);
+
+-------------------------------------------------------
+-- 5. Department Domain
+-------------------------------------------------------
+-- 귀국 일정
+CREATE TABLE departure_service (
+    departure_id    BIGSERIAL PRIMARY KEY,
+    member_id       BIGINT NOT NULL,
+    planned_date    DATE,
+    status          VARCHAR(30), -- PLANNED, PROCESSING, COMPLETED
+
+    FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
+);
+-- 계좌정리
+CREATE TABLE bank_account (
+    account_id      BIGSERIAL PRIMARY KEY,
+    member_id       BIGINT NOT NULL,
+    bank_name       VARCHAR(100),
+    account_masked  VARCHAR(50),
+    is_closed       BOOLEAN DEFAULT FALSE,
+
+    FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
+);
+-- 보험 해지, 이전
+CREATE TABLE insurance_transfer (
+    transfer_id     BIGSERIAL PRIMARY KEY,
+    contract_id     BIGINT NOT NULL,
+    action_type     VARCHAR(20), -- CANCEL, TRANSFER, REJOIN
+    target_country  VARCHAR(50),
+    processed_at    TIMESTAMP,
+
+    FOREIGN KEY (contract_id) REFERENCES insurance_contract(contract_id)
 );
 
 
