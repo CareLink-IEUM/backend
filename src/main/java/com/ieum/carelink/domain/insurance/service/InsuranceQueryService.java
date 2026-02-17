@@ -33,6 +33,7 @@ public class InsuranceQueryService {
                         .linkId(link.getId())
                         .name(link.getCoverage().getName())
                         .category(link.getCoverage().getCategory())
+                        .description(link.getCoverage().getDescription())
                         .amount(link.getAmount())
                         .price(link.getMonthlyPrice())
                         .mandatory(Boolean.TRUE.equals(link.getIsMandatory()))
@@ -43,6 +44,7 @@ public class InsuranceQueryService {
                 .productId(product.getId())
                 .productName(product.getName())
                 .productType(product.getProductType().name())
+                .productDescription(product.getDescription())
                 .coverages(coverageDtos)
                 .build();
     }

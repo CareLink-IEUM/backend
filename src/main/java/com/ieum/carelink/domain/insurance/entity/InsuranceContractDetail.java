@@ -35,4 +35,11 @@ public class InsuranceContractDetail {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coverage_id", nullable = false)
     private InsuranceCoverage coverage;
+
+    public static InsuranceContractDetail create(InsuranceContract contract, InsuranceCoverage coverage) {
+        InsuranceContractDetail detail = new InsuranceContractDetail();
+        detail.contract = contract;
+        detail.coverage = coverage;
+        return detail;
+    }
 }

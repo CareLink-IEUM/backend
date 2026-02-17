@@ -69,6 +69,26 @@ public class InsuranceContract {
 
     @OneToMany(mappedBy = "contract", fetch = FetchType.LAZY)
     private List<InsuranceContractDetail> details = new ArrayList<>();
+
+    // 생성용 팩토리 메서드
+    public static InsuranceContract create(Long memberId,
+                                           InsuranceProduct product,
+                                           PaymentCycle paymentCycle,
+                                           Integer totalPrice,
+                                           ContractStatus status,
+                                           LocalDate startDate,
+                                           LocalDate endDate) {
+        InsuranceContract contract = new InsuranceContract();
+        contract.memberId = memberId;
+        contract.product = product;
+        contract.paymentCycle = paymentCycle;
+        contract.totalPrice = totalPrice;
+        contract.status = status;
+        contract.startDate = startDate;
+        contract.endDate = endDate;
+        contract.createdAt = LocalDateTime.now();
+        return contract;
+    }
 }
 
 
