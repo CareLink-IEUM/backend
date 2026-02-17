@@ -245,26 +245,103 @@ CREATE TABLE insurance_transfer (
     FOREIGN KEY (contract_id) REFERENCES insurance_contract(contract_id)
 );
 
+-- INSERT INTO member (email, password, name, nationality, visa_type, birth_date, gender)
+-- VALUES ('nguyen@test.com', 'encrypted_pwd', 'Nguyen Van A', 'Vietnam', 'E-7', '1990-05-20', 'MALE');
+
+-- INSERT INTO insurance_product (name, product_type, category, provider, base_price) VALUES 
+-- ('자동차보험', 'FIXED', 'DRIVER', '한화손해보험', 0),
+-- ('한화 Bridge 조립식 종합', 'CUSTOM', 'LIVING', '한화손해보험', 1000);
+
+-- INSERT INTO insurance_coverage (category, name, description) VALUES
+-- ('상해', '상해사망(보통약관)', '사망 시 지급'),
+-- ('치과', '임플란트 치료비', '임플란트 시술 시 지급'),
+-- ('주거', '화재손해(건물/가재)', '화재로 인한 집과 가재도구의 실손해 보상');
+
+-- INSERT INTO product_coverage_link (product_id, coverage_id, amount, monthly_price, is_mandatory)
+-- VALUES (2, (SELECT coverage_id FROM insurance_coverage WHERE name = '화재손해(건물/가재)'), 200000000, 5000, TRUE);
+
+-- INSERT INTO insurance_contract (member_id, product_id, total_price, start_date, end_date)
+-- VALUES (1, 2, 6000, '2026-03-01', '2027-03-01'); -- 기본료 1000 + 화재 5000 = 6000
+
+-- INSERT INTO insurance_contract_detail (contract_id, coverage_id)
+-- VALUES (1, (SELECT coverage_id FROM insurance_coverage WHERE name = '화재손해(건물/가재)'));-------------------------------------------------------
+
+-------------------------------------------------------
+-- 1. Member 데이터
+-------------------------------------------------------
 INSERT INTO member (email, password, name, nationality, visa_type, birth_date, gender)
 VALUES ('nguyen@test.com', 'encrypted_pwd', 'Nguyen Van A', 'Vietnam', 'E-7', '1990-05-20', 'MALE');
 
-INSERT INTO insurance_product (name, product_type, category, provider, base_price) VALUES 
-('자동차보험', 'FIXED', 'DRIVER', '한화손해보험', 0),
-('한화 Bridge 조립식 종합', 'CUSTOM', 'LIVING', '한화손해보험', 1000);
-
+-------------------------------------------------------
+-- 2. 보험 담보/특약 마스터 (insurance_coverage)
+-------------------------------------------------------
 INSERT INTO insurance_coverage (category, name, description) VALUES
-('상해', '상해사망(보통약관)', '사망 시 지급'),
-('치과', '임플란트 치료비', '임플란트 시술 시 지급'),
-('주거', '화재손해(건물/가재)', '화재로 인한 집과 가재도구의 실손해 보상');
+('DISEASE', '암 진단비', '암 확정 진단 시 가입금액 지급'),
+('DISEASE', '뇌혈관질환 진단비', '뇌혈관 질환 확정 시 지급'),
+('INJURY', '상해사망', '상해로 인한 사망 시 지급'),
+('INJURY', '골절진단비', '골절 발생 시 진단비 지급'),
+('LIVING', '일상생활 배상책임', '타인에게 끼친 재산상 손해 배상'),
+('LIVING', '화재손해(건물/가재)', '화재로 인한 실손해 보상'),
+('DENTAL', '임플란트 치료비', '임플란트 시술 시 지급'),
+('DENTAL', '크라운 치료비', '치아 크라운 치료 시 지급');
 
+-------------------------------------------------------
+-- 3. 보험 상품 세팅 (insurance_product)
+-------------------------------------------------------
+-- 미니 보험: 특정 목적(치아)만 가짐
+INSERT INTO insurance_product (name, product_type, category, provider, base_price, description) VALUES 
+('한화 1코노미 치아미니', 'MINI', 'DENTAL', '한화손해보험', 0, '필수 치아 보장만 담은 미니 보험');
+
+-- 조립형 보험: 모든 보장을 다 가지고 있고 사용자가 선택함
+INSERT INTO insurance_product (name, product_type, category, provider, base_price, description) VALUES 
+('한화 Bridge 조립식 종합', 'CUSTOM', 'LIVING', '한화손해보험', 1000, '내 맘대로 설계하는 외국인 맞춤형 종합보험');
+
+-------------------------------------------------------
+-- 4. 상품-담보 연결 (product_coverage_link)
+-------------------------------------------------------
+
+-- A. 미니 보험 (치아 카테고리만 필수 연결)
 INSERT INTO product_coverage_link (product_id, coverage_id, amount, monthly_price, is_mandatory)
-VALUES (2, (SELECT coverage_id FROM insurance_coverage WHERE name = '화재손해(건물/가재)'), 200000000, 5000, TRUE);
+SELECT 
+    (SELECT product_id FROM insurance_product WHERE name = '한화 1코노미 치아미니'),
+    coverage_id,
+    1000000, 3000, TRUE
+FROM insurance_coverage 
+WHERE category = 'DENTAL';
 
-INSERT INTO insurance_contract (member_id, product_id, total_price, start_date, end_date)
-VALUES (1, 2, 6000, '2026-03-01', '2027-03-01'); -- 기본료 1000 + 화재 5000 = 6000
+-- B. 조립형 보험 (모든 담보를 연결하되, 핵심만 TRUE)
+-- 1) 필수 담보 (Core): 상해사망, 일상생활 배상책임
+INSERT INTO product_coverage_link (product_id, coverage_id, amount, monthly_price, is_mandatory)
+SELECT 
+    (SELECT product_id FROM insurance_product WHERE name = '한화 Bridge 조립식 종합'),
+    coverage_id,
+    50000000, 1000, TRUE
+FROM insurance_coverage 
+WHERE name IN ('상해사망', '일상생활 배상책임');
+
+-- 2) 선택 담보 (Retail): 나머지 모든 담보
+INSERT INTO product_coverage_link (product_id, coverage_id, amount, monthly_price, is_mandatory)
+SELECT 
+    (SELECT product_id FROM insurance_product WHERE name = '한화 Bridge 조립식 종합'),
+    coverage_id,
+    10000000, 2500, FALSE
+FROM insurance_coverage 
+WHERE name NOT IN ('상해사망', '일상생활 배상책임');
+
+-------------------------------------------------------
+-- 5. 실제 가입 데이터 (insurance_contract & detail)
+-------------------------------------------------------
+-- Nguyen 씨가 조립형 보험에 가입
+INSERT INTO insurance_contract (member_id, product_id, total_price, start_date, end_date, status)
+VALUES (1, 2, 5500, '2026-03-01', '2027-03-01', 'ACTIVE');
 
 INSERT INTO insurance_contract_detail (contract_id, coverage_id)
-VALUES (1, (SELECT coverage_id FROM insurance_coverage WHERE name = '화재손해(건물/가재)'));-------------------------------------------------------
+SELECT 
+    (SELECT contract_id FROM insurance_contract WHERE product_id = 2 AND member_id = 1),
+    coverage_id
+FROM insurance_coverage 
+WHERE name IN ('상해사망', '일상생활 배상책임', '암 진단비');
+
 
 -- 보험 조회용 view
 --------------------------------------------------------
