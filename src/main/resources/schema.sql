@@ -1,10 +1,21 @@
--- [초기화] 기존 테이블 삭제
+DROP VIEW IF EXISTS user_current_insurance;
+DROP TABLE IF EXISTS insurance_claim CASCADE;
+DROP TABLE IF EXISTS medical_document CASCADE;
+DROP TABLE IF EXISTS hospital_visit CASCADE;
+DROP TABLE IF EXISTS emergency_event CASCADE;
 DROP TABLE IF EXISTS insurance_contract_detail CASCADE;
 DROP TABLE IF EXISTS insurance_contract CASCADE;
+DROP TABLE IF EXISTS product_coverage_link CASCADE;
 DROP TABLE IF EXISTS insurance_coverage CASCADE;
 DROP TABLE IF EXISTS insurance_product CASCADE;
+DROP TABLE IF EXISTS social_insurance CASCADE;
 DROP TABLE IF EXISTS family_member CASCADE;
 DROP TABLE IF EXISTS member CASCADE;
+DROP TABLE IF EXISTS departure_service CASCADE;
+DROP TABLE IF EXISTS bank_account CASCADE;
+DROP TABLE IF EXISTS currency_exchange CASCADE;
+DROP TABLE IF EXISTS insurance_transfer CASCADE;
+DROP TYPE IF EXISTS insurance_category_type CASCADE;
 
 -------------------------------------------------------
 -- 1. Member Domain
@@ -23,9 +34,6 @@ CREATE TABLE member (
     created_at      TIMESTAMP       DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
 );
-INSERT INTO member (email, password, name, nationality, visa_type, birth_date, gender)
-VALUES ('nguyen@test.com', 'encrypted_pwd', 'Nguyen Van A', 'Vietnam', 'E-7', '1990-05-20', 'MALE');
-
 -- 가족 구성원
 CREATE TABLE family_member (
     family_id       BIGSERIAL PRIMARY KEY,
@@ -39,38 +47,50 @@ CREATE TABLE family_member (
     FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
 );
 
-
-
 -------------------------------------------------------
 -- 2. Insurance Domain
 -------------------------------------------------------
+-- 카테고리 고정
+CREATE TYPE insurance_category_type AS ENUM (
+    'MINI',     -- 미니
+    'DISEASE',  -- 질병
+    'INJURY',   -- 상해/산업
+    'DENTAL',   -- 치아
+    'DRIVER',   -- 운전
+    'LIVING'    -- 생활/권리
+);
 
--- 보험 상품 마스터
+-- 보험 상품 껍데기
 CREATE TABLE insurance_product (
     product_id      BIGSERIAL       PRIMARY KEY,
-    name            VARCHAR(100)    NOT NULL,       -- 상품명
-    product_type    VARCHAR(20)     NOT NULL,       -- FIXED(기성품), CUSTOM(조립식)
-    category        VARCHAR(30)     NOT NULL,       -- LIFE, HEALTH, DENTAL, FIRE
-    description     TEXT,                           -- 상품 설명
-    base_price      INTEGER         DEFAULT 0,      -- 기본 운용비
-    provider        VARCHAR(50)     NOT NULL,       -- 보험사 (한화손해보험 등)
+    name            VARCHAR(100)    NOT NULL,       -- 상품명 (예: 암 안심 케어, 라이더 안심 케어)
+    product_type    VARCHAR(20)     NOT NULL,       -- MINI(미니), CUSTOM(조립식), FIXED(기성품)
+    category        insurance_category_type NOT NULL,       -- HEALTH, DENTAL, DRIVER 등
+    description     TEXT,
+    base_price      INTEGER         DEFAULT 0,
+    provider        VARCHAR(50)     NOT NULL,       -- 한화손해보험 등
+    created_at      TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
+);
+-- 보험 담보/특약 마스터
+CREATE TABLE insurance_coverage (
+    coverage_id     BIGSERIAL       PRIMARY KEY,
+    category        VARCHAR(50),                    -- 상해, 치과, 주거 등
+    name            VARCHAR(100)    NOT NULL,       -- 담보명
+    description     TEXT,
     created_at      TIMESTAMP       DEFAULT CURRENT_TIMESTAMP
 );
 
--- 보험 담보/특약 (조립형)
-CREATE TABLE insurance_coverage (
-    coverage_id     BIGSERIAL       PRIMARY KEY,
+-- 상품-담보 연결
+CREATE TABLE product_coverage_link (
+    link_id         BIGSERIAL       PRIMARY KEY,
     product_id      BIGINT          NOT NULL,
-    
-    category        VARCHAR(50),                    -- 의료비, 배상책임, 치과 등
-    name            VARCHAR(100)    NOT NULL,       -- 담보명
-    description     TEXT,
-    
-    amount          BIGINT          DEFAULT 0,      -- 보장 한도 (단위: 원)
+    coverage_id     BIGINT          NOT NULL,
+    amount          BIGINT          DEFAULT 0,      -- 보장 한도
     monthly_price   INTEGER         DEFAULT 0,      -- 월 보험료
-    is_mandatory    BOOLEAN         DEFAULT FALSE,  -- TRUE: 필수(주계약), FALSE: 선택(특약)
+    is_mandatory    BOOLEAN         DEFAULT FALSE,  -- 필수 여부
     
-    FOREIGN KEY (product_id) REFERENCES insurance_product(product_id) ON DELETE CASCADE
+    FOREIGN KEY (product_id) REFERENCES insurance_product(product_id) ON DELETE CASCADE,
+    FOREIGN KEY (coverage_id) REFERENCES insurance_coverage(coverage_id) ON DELETE CASCADE
 );
 
 -- 4대 보험
@@ -84,7 +104,6 @@ CREATE TABLE social_insurance (
 
     FOREIGN KEY (member_id) REFERENCES member(member_id) ON DELETE CASCADE
 );
-
 
 -------------------------------------------------------
 -- 3. Contract Domain
@@ -226,87 +245,49 @@ CREATE TABLE insurance_transfer (
     FOREIGN KEY (contract_id) REFERENCES insurance_contract(contract_id)
 );
 
+INSERT INTO member (email, password, name, nationality, visa_type, birth_date, gender)
+VALUES ('nguyen@test.com', 'encrypted_pwd', 'Nguyen Van A', 'Vietnam', 'E-7', '1990-05-20', 'MALE');
 
-INSERT INTO insurance_product (name, product_type, category, description, base_price, provider)
-VALUES 
-('(무) 한화 더건강한 한아름종합보험', 'FIXED', 'HEALTH', '상해, 질병, 수술비까지 하나로 보장하는 한화의 대표 종합보험', 0, '한화손해보험'),
-('한화 Lifeplus Bridge 조립식 보험', 'CUSTOM', 'MIXED', '치과 치료와 주택 화재 보장을 내 맘대로 조립하는 외국인 전용 보험', 1000, '한화손해보험');
+INSERT INTO insurance_product (name, product_type, category, provider, base_price) VALUES 
+('자동차보험', 'FIXED', 'DRIVER', '한화손해보험', 0),
+('한화 Bridge 조립식 종합', 'CUSTOM', 'LIVING', '한화손해보험', 1000);
 
-INSERT INTO insurance_coverage (product_id, category, name, amount, monthly_price, is_mandatory, description)
-VALUES
-(1, '기본계약', '상해사망(보통약관)', 50000000, 3000, TRUE, '상해의 직접 결과로 사망 시 가입금액 지급'),
-(1, '납입면제', '8대사유 납입면제', 100000, 281, FALSE, '암, 뇌졸중 등 8대 사유 발생 시 차회 보험료 면제'),
-(1, '수술비', '상해종합병원수술비', 300000, 522, FALSE, '상해로 종합병원 수술 시 지급'),
-(1, '수술비', '질병종합병원수술비', 300000, 2310, FALSE, '질병으로 종합병원 수술 시 지급'),
-(1, '수술비', '질병 1-5종 수술비', 15500000, 28987, FALSE, '질병 수술 시 1~5종 등급에 따라 차등 지급');
+INSERT INTO insurance_coverage (category, name, description) VALUES
+('상해', '상해사망(보통약관)', '사망 시 지급'),
+('치과', '임플란트 치료비', '임플란트 시술 시 지급'),
+('주거', '화재손해(건물/가재)', '화재로 인한 집과 가재도구의 실손해 보상');
 
+INSERT INTO product_coverage_link (product_id, coverage_id, amount, monthly_price, is_mandatory)
+VALUES (2, (SELECT coverage_id FROM insurance_coverage WHERE name = '화재손해(건물/가재)'), 200000000, 5000, TRUE);
 
-INSERT INTO insurance_coverage (product_id, category, name, amount, monthly_price, is_mandatory, description)
-VALUES
-(2, '치과', '보존치료(크라운/레진)', 100000, 1500, FALSE, '충치 치료(레진, 크라운) 시 치아당 지급'),
-(2, '치과', '보철치료(임플란트)', 500000, 3500, FALSE, '임플란트 식립 시 치아당 지급 (무제한)'),
-(2, '치과', '보철치료(틀니)', 500000, 1000, FALSE, '틀니 치료 시 연간 1회 지급'),
-(2, '치과', '스케일링', 10000, 100, FALSE, '치석제거(스케일링) 치료 시 지급'),
-(2, '치과', '치아파절 진단비', 100000, 500, FALSE, '외부 충격으로 치아 깨짐 진단 시 지급');
+INSERT INTO insurance_contract (member_id, product_id, total_price, start_date, end_date)
+VALUES (1, 2, 6000, '2026-03-01', '2027-03-01'); -- 기본료 1000 + 화재 5000 = 6000
 
-INSERT INTO insurance_coverage (product_id, category, name, amount, monthly_price, is_mandatory, description)
-VALUES
-(2, '주거', '화재손해(건물/가재)', 200000000, 5000, TRUE, '화재로 인한 집과 가재도구의 실손해 보상 (필수)'),
-(2, '주거', '화재배상책임', 2000000000, 500, FALSE, '우리집 불이 번져서 타인에게 피해를 입힌 경우 배상'),
-(2, '주거', '가전제품수리비', 1000000, 3800, FALSE, '12대 가전제품 고장 시 수리비 실비 지급'),
-(2, '주거', '급배수시설누출손해', 5000000, 2500, FALSE, '수도관 누수 등으로 인한 손해 보상'),
-(2, '주거', '임시거주비', 250000, 250, FALSE, '화재로 거주 불가능 시 숙박비 지원');
-
--- [4] 시뮬레이션: 사용자가 '조립식 보험'을 가입하는 상황
--- 상황: Nguyen씨가 Bridge 보험(ID 2)에서 [화재손해(필수) + 임플란트 + 가전제품수리]를 선택
-
--- 1. 계약서 생성 (Header)
--- 총액 계산: 기본료(1000) + 화재(5000) + 임플란트(3500) + 가전(3800) = 13,300원
-INSERT INTO insurance_contract (member_id, product_id, total_price, start_date, end_date, status)
-VALUES (1, 2, 13300, '2026-03-01', '2027-03-01', 'ACTIVE');
-
--- 2. 상세 내역 저장 (Body)
 INSERT INTO insurance_contract_detail (contract_id, coverage_id)
-VALUES
-(1, (SELECT coverage_id FROM insurance_coverage WHERE name = '화재손해(건물/가재)')),
-(1, (SELECT coverage_id FROM insurance_coverage WHERE name = '보철치료(임플란트)')),
-(1, (SELECT coverage_id FROM insurance_coverage WHERE name = '가전제품수리비'));
+VALUES (1, (SELECT coverage_id FROM insurance_coverage WHERE name = '화재손해(건물/가재)'));-------------------------------------------------------
 
---------------------------------------------------------
 -- 보험 조회용 view
 --------------------------------------------------------
 CREATE OR REPLACE VIEW user_current_insurance AS
 SELECT 
     m.member_id,
-    m.name AS member_name,
     ic.contract_id,
     ip.name AS product_name,
-    ip.product_type,
-    ip.category AS product_category,
-    ic.total_price,
-    ic.payment_cycle,
-    ic.status AS contract_status,
-    ic.start_date,
-    ic.end_date,
-    icov.coverage_id,
     icov.name AS coverage_name,
-    icov.category AS coverage_category,
-    icov.amount,
-    icov.monthly_price,
-    icov.is_mandatory
-FROM member m
-JOIN insurance_contract ic ON m.member_id = ic.member_id
+    pcl.amount AS coverage_amount,
+    pcl.monthly_price,
+    pcl.is_mandatory
+FROM insurance_contract ic
+JOIN member m ON ic.member_id = m.member_id
 JOIN insurance_product ip ON ic.product_id = ip.product_id
-JOIN insurance_coverage icov ON ip.product_id = icov.product_id
-JOIN insurance_contract_detail icd
-    ON ic.contract_id = icd.contract_id 
-   AND icov.coverage_id = icd.coverage_id
-WHERE icov.is_mandatory = TRUE
-   OR icd.detail_id IS NOT NULL;
+JOIN insurance_contract_detail icd ON ic.contract_id = icd.contract_id
+JOIN insurance_coverage icov ON icd.coverage_id = icov.coverage_id
+JOIN product_coverage_link pcl 
+    ON ip.product_id = pcl.product_id 
+    AND icov.coverage_id = pcl.coverage_id;
 
 
 -- 사용 예시
 -- SELECT *
 -- FROM user_current_insurance
--- WHERE member_id = 1
--- ORDER BY contract_id, coverage_id;
+-- WHERE member_id = 1;
