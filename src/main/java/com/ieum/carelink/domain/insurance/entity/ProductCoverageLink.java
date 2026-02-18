@@ -44,4 +44,7 @@ public class ProductCoverageLink {
 
     @Column(name = "is_mandatory")
     private Boolean isMandatory;
+
+    @Column(name = "is_recommended")
+    private Boolean isRecommended;
 }

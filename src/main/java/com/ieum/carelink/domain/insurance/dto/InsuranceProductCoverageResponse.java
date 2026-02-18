@@ -25,5 +25,6 @@ public class InsuranceProductCoverageResponse {
         private Long amount;      // 보장금액
         private Integer price;    // 월 보험료
         private boolean mandatory; // 필수(Core) 여부
+        private boolean recommended;
     }
 }
