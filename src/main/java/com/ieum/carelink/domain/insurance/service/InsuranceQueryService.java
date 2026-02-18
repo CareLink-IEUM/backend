@@ -37,6 +37,7 @@ public class InsuranceQueryService {
                         .amount(link.getAmount())
                         .price(link.getMonthlyPrice())
                         .mandatory(Boolean.TRUE.equals(link.getIsMandatory()))
+                        .recommended(Boolean.TRUE.equals(link.getIsRecommended()))
                         .build())
                 .collect(Collectors.toList());
 
